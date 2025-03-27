@@ -1,5 +1,6 @@
 package com.chinhdo.identity_service.controller;
 
+import com.chinhdo.identity_service.dto.request.ApiResponse;
 import com.chinhdo.identity_service.dto.request.UserCreationRequest;
 import com.chinhdo.identity_service.dto.request.UserUpdateRequest;
 import com.chinhdo.identity_service.entity.User;
@@ -17,9 +18,13 @@ public class UserController {
     private UserService userService;
 
     @PostMapping //endpoint
-    User createUser(@RequestBody @Valid UserCreationRequest request){
+    ApiResponse<User> createUser(@RequestBody @Valid UserCreationRequest request){
         //map data body vao UsercreationRequest, valid theo rule trong UserCreationRequest
-        return userService.createUser(request);
+
+        ApiResponse<User> apiResponse = new ApiResponse<>();
+        apiResponse.setResult(userService.createUser(request));
+
+        return apiResponse;
     }
 
     @GetMapping
