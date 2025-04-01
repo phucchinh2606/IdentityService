@@ -11,6 +11,7 @@ import lombok.experimental.FieldDefaults;
 @FieldDefaults(level = AccessLevel.PRIVATE) //moi field neu ko xac dinh cu the thi mac dinh la private
 @JsonInclude(JsonInclude.Include.NON_NULL) //field nao null thi ko kem vao json response
 public class ApiResponse<T> {
+
     private int code = 1000;
     private String message;
     private T result;
