@@ -1,10 +1,8 @@
 package com.chinhdo.identity_service.dto.response;
 
-import com.chinhdo.identity_service.entity.Role;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 
-import java.time.LocalDate;
 import java.util.Set;
 
 @Data //bao gom ca setter va getter
@@ -12,11 +10,9 @@ import java.util.Set;
 @AllArgsConstructor //constructor day du tham so
 @Builder //xay dung object nhanh hon
 @FieldDefaults(level = AccessLevel.PRIVATE) //moi field neu ko xac dinh cu the thi mac dinh la private
-public class UserResponse {
-    String id;
-    String username;
-    String firstName;
-    String lastName;
-    LocalDate dob;
-    Set<Role> roles;
+public class RoleResponse {
+
+    String name;
+    String description;
+    Set<PermissionResponse> permissions;
 }
