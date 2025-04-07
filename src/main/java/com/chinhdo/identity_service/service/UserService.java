@@ -8,6 +8,7 @@ import com.chinhdo.identity_service.enums.Role;
 import com.chinhdo.identity_service.exception.AppException;
 import com.chinhdo.identity_service.exception.ErrorCode;
 import com.chinhdo.identity_service.mapper.UserMapper;
+import com.chinhdo.identity_service.repository.RoleRepository;
 import com.chinhdo.identity_service.repository.UserRepository;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -21,7 +22,6 @@ import org.springframework.stereotype.Service;
 
 import java.util.HashSet;
 import java.util.List;
-import java.util.Optional;
 
 @Slf4j
 @Service
@@ -32,6 +32,7 @@ public class UserService {
     UserRepository userRepository;
     UserMapper userMapper;
     PasswordEncoder passwordEncoder;
+    RoleRepository roleRepository;
 
     public UserResponse createUser(UserCreationRequest request){
 
@@ -79,7 +80,10 @@ public class UserService {
     public UserResponse updateUser(String userId,UserUpdateRequest request){
         User user = userRepository.findById(userId).orElseThrow(() -> new RuntimeException("User not found! =))"));
         userMapper.updateUser(user,request);
+        user.setPassword(passwordEncoder.encode(request.getPassword()));
 
+        var roles = roleRepository.findAllById(request.getRoles());
+        user.setRoles(new HashSet<>(roles));
         return userMapper.toUserResponse(userRepository.save(user));
     }
 
