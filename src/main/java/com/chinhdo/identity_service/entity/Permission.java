@@ -14,7 +14,6 @@ import lombok.experimental.FieldDefaults;
 @Entity //danh dau la table
 public class Permission {
     @Id
-
     String name;
     String description;
 
