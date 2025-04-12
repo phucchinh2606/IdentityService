@@ -3,6 +3,7 @@ package com.chinhdo.identity_service.service;
 import com.chinhdo.identity_service.dto.request.AuthenticationRequest;
 import com.chinhdo.identity_service.dto.request.IntrospectRequest;
 import com.chinhdo.identity_service.dto.request.LogoutRequest;
+import com.chinhdo.identity_service.dto.request.RefreshRequest;
 import com.chinhdo.identity_service.dto.response.AuthenticationResponse;
 import com.chinhdo.identity_service.dto.response.IntrospectResponse;
 import com.chinhdo.identity_service.entity.InvalidateToken;
@@ -47,13 +48,21 @@ public class AuthenticationService {
     @Value("${jwt.signerKey}")
     protected String SIGNER_KEY;
 
+    @NonFinal //ko inject vao constructor
+    @Value("${jwt.valid-duration}")
+    protected long VALID_DURATION;
+
+    @NonFinal //ko inject vao constructor
+    @Value("${jwt.refreshable-duration}")
+    protected long REFRESHABLE_DURATION;
+
     public IntrospectResponse introspect(IntrospectRequest request)
             throws JOSEException, ParseException {
         var token = request.getToken();
 
         boolean isValid = true;
         try {
-            verifyToken(token);
+            verifyToken(token,false);
         }catch (AppException e){
             isValid = false;
         }
@@ -85,25 +94,59 @@ public class AuthenticationService {
 
     }
 
-    public void logout(LogoutRequest request) throws ParseException, JOSEException {
+    public AuthenticationResponse refreshToken(RefreshRequest request)
+            throws ParseException, JOSEException {
+        //kiem tra hieu luc token
+        var signJWT = verifyToken(request.getToken(),true);
+        var jit = signJWT.getJWTClaimsSet().getJWTID();
+        var expiryTime = signJWT.getJWTClaimsSet().getExpirationTime();
 
-        var signToken = verifyToken(request.getToken());
-        String jit = signToken.getJWTClaimsSet().getJWTID();
-        Date expiryTime = signToken.getJWTClaimsSet().getExpirationTime();
         InvalidateToken invalidateToken = InvalidateToken.builder()
                 .id(jit)
                 .expiryTime(expiryTime)
                 .build();
-
         invalidatedTokenRepository.save(invalidateToken);
+        var username = signJWT.getJWTClaimsSet().getSubject();
+        var user = userRepository.findByUsername(username).orElseThrow(
+                () -> new AppException(ErrorCode.UNAUTHENTICATED)
+        );
+
+        var token = generateToken(user);
+        return AuthenticationResponse.builder()
+                .token(token)
+                .authenticated(true)
+                .build();
+    }
+
+    public void logout(LogoutRequest request) throws ParseException, JOSEException {
+
+        try {
+            var signToken = verifyToken(request.getToken(),true);
+            String jit = signToken.getJWTClaimsSet().getJWTID();
+            Date expiryTime = signToken.getJWTClaimsSet().getExpirationTime();
+            InvalidateToken invalidateToken = InvalidateToken.builder()
+                    .id(jit)
+                    .expiryTime(expiryTime)
+                    .build();
+
+            invalidatedTokenRepository.save(invalidateToken);
+        }catch (AppException exception){
+            log.info("Token already expried"); //token het han
+        }
+
+
+
+
 
     }
 
-    private SignedJWT verifyToken(String token) throws JOSEException, ParseException {
+    private SignedJWT verifyToken(String token, boolean isRefresh) throws JOSEException, ParseException {
         JWSVerifier jwsVerifier = new MACVerifier(SIGNER_KEY.getBytes());
 
         SignedJWT signedJWT = SignedJWT.parse(token);
-        Date expityTime = signedJWT.getJWTClaimsSet().getExpirationTime();
+        Date expityTime = (isRefresh)
+                ? new Date(signedJWT.getJWTClaimsSet().getIssueTime().toInstant().plus(REFRESHABLE_DURATION,ChronoUnit.SECONDS).toEpochMilli())
+                : signedJWT.getJWTClaimsSet().getExpirationTime();
         var verified = signedJWT.verify(jwsVerifier);
 
         if(!(verified && expityTime.after(new Date()))){
@@ -125,7 +168,7 @@ public class AuthenticationService {
                 .issuer("phucchinh.com")// iss: phucchinh.com
                 .issueTime(new Date())// currentTime
                 .expirationTime(new Date(
-                        Instant.now().plus(1, ChronoUnit.HOURS).toEpochMilli()
+                        Instant.now().plus(VALID_DURATION, ChronoUnit.SECONDS).toEpochMilli()
                 ))//thoi han token la 1 hour
                 .jwtID(UUID.randomUUID().toString())
                 .claim("scope",buildScpoe(user))//custom claim
